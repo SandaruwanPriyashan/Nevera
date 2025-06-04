@@ -197,7 +197,7 @@ def intersect_line_circle(line, circle):
 # Main application
 def main():
     # Welcome screen
-    st.title("📍 Nevera - Vibration Source Locator")
+    st.title(" Nevera - Vibration Source Locator")
     st.image("https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1200&h=400", 
              caption="Vibration Analysis System", use_column_width=True)
     
