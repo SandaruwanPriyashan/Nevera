@@ -295,18 +295,6 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                 showlegend=True
             ))
             
-            # Plot actual source if provided
-            if actual_source and len(actual_source) >= 3:
-            fig.add_trace(go.Scatter3d(
-            x=[actual_source[0]], 
-            y=[actual_source[1]], 
-            z=[actual_source[2]],
-            mode='markers+text',
-            marker=dict(size=15, color='magenta', symbol='cross', line=dict(color='black', width=2)),
-            text=['TRUE'],
-            textposition="top center",
-            name='Actual Source'
-            ))
             # Center point
             fig.add_trace(go.Scatter3d(
                 x=[shape.center[0]], y=[shape.center[1]], z=[shape.center[2]],
@@ -357,7 +345,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
             y=[actual_source[1]], 
             z=[actual_source[2]],
             mode='markers+text',
-            marker=dict(size=15, color='magenta', symbol='star'),
+            marker=dict(size=15, color='magenta', symbol='cross', line=dict(color='black', width=2)),
             text=['TRUE'],
             textposition="top center",
             name='Actual Source'
