@@ -370,7 +370,7 @@ def main():
     st.title(" Nevera - Advanced Vibration Source Locator")
     
     # Display logo
-    st.image("C:\Users\USER\Downloads\WhatsApp Image 2025-07-23 at 11.49.17 PM.jpeg", caption="Nevera Logo", width=200)
+    st.image("assets/logo.png", caption="Nevera Logo", width=200)
     
     st.markdown("""
     ## Welcome to Advanced Nevera!
