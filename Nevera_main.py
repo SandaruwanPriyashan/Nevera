@@ -369,6 +369,7 @@ def main():
     # Title and description
     st.title(" Nevera - Advanced Vibration Source Locator")
     
+    
     ## Welcome to Advanced Nevera!
     This application performs vibration source localization using multiple sensors with automatic dimension detection:
     - **3 Sensors**: 2D localization with matplotlib visualization
