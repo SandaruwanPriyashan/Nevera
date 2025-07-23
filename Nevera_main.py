@@ -326,17 +326,17 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
         ))
     
     # Plot estimated location
-    if estimated_location is not None:
-        fig.add_trace(go.Scatter3d(
-            x=[estimated_location[0]], 
-            y=[estimated_location[1]], 
-            z=[estimated_location[2]],
-            mode='markers+text',
-            marker=dict(size=15, color='red', symbol='diamond'),
-            text=['EST'],
-            textposition="top center",
-            name='Estimated Source'
-        ))
+    #if estimated_location is not None:
+        #fig.add_trace(go.Scatter3d(
+            #x=[estimated_location[0]], 
+            #y=[estimated_location[1]], 
+            #z=[estimated_location[2]],
+            #mode='markers+text',
+            #marker=dict(size=15, color='red', symbol='diamond'),
+            #text=['EST'],
+            #textposition="top center",
+            #name='Estimated Source'
+        #))
     
     # Plot actual source if provided
     if actual_source and len(actual_source) >= 3:
