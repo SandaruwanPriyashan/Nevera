@@ -425,7 +425,7 @@ def main():
                 st.metric("Error from True Source", f"{error:.2f}")
         
         # Create visualization
-        st.subheader( Visualization")
+        st.subheader( "Visualization")
         
         actual_source = [actual_x, actual_y, actual_z] if show_actual else None
         
