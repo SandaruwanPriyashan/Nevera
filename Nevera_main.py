@@ -369,6 +369,9 @@ def main():
     # Title and description
     st.title(" Nevera - Advanced Vibration Source Locator")
     
+    # Display logo
+    st.image("C:\Users\USER\Downloads\WhatsApp Image 2025-07-23 at 11.49.17 PM.jpeg", caption="Nevera Logo", width=200)
+    
     st.markdown("""
     ## Welcome to Advanced Nevera!
     This application performs vibration source localization using multiple sensors with automatic dimension detection:
