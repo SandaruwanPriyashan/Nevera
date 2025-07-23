@@ -368,8 +368,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
 def main():
     # Title and description
     st.title(" Nevera - Advanced Vibration Source Locator")
-    st.image("https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1200&h=400", 
-             caption="Vibration Analysis System", use_container_width=True)
+    
     ## Welcome to Advanced Nevera!
     This application performs vibration source localization using multiple sensors with automatic dimension detection:
     - **3 Sensors**: 2D localization with matplotlib visualization
