@@ -563,18 +563,6 @@ def main():
             fig = create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shape_idx, actual_source)
             st.plotly_chart(fig, use_container_width=True)
             
-            # Plot actual source if provided
-            if actual_source and len(actual_source) >= 3:
-            fig.add_trace(go.Scatter3d(
-        x=[actual_source[0]], 
-        y=[actual_source[1]], 
-        z=[actual_source[2]],
-        mode='markers+text',
-        marker=dict(size=15, color='magenta', symbol='cross', line=dict(color='black', width=2)),
-        text=['TRUE'],
-        textposition="top center",
-        name='Actual Source'
-    ))
             # Display identified cylinder
             st.subheader("🎯 Identified Vibration Cylinder")
             identified_shape = shapes[closest_shape_idx]
