@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -492,7 +491,7 @@ def main():
             })
         
         st.subheader("📊 Sensor Summary")
-744        st.dataframe(pd.DataFrame(sensor_data), use_container_width=True)
+        st.dataframe(pd.DataFrame(sensor_data), use_container_width=True)
         
         # Perform localization based on sensor count
         with st.spinner("🔍 Performing localization..."):
