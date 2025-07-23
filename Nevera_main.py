@@ -2,12 +2,15 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from scipy import signal
-import os
+from scipy.signal import butter, filtfilt
+import warnings
+warnings.filterwarnings('ignore')
 
 # Page configuration
 st.set_page_config(
-    page_title="Nevera - Vibration Source Locator",
+    page_title="Nevera - Advanced Vibration Source Locator",
     page_icon="📍",
     layout="wide"
 )
@@ -16,7 +19,14 @@ st.set_page_config(
 def load_and_process_signal(uploaded_file, column_name):
     """Load and process sensor data from CSV"""
     try:
-        df = pd.read_csv(uploaded_file)
+        # Handle different file formats
+        if uploaded_file.name.endswith('.txt'):
+            try:
+                df = pd.read_csv(uploaded_file, sep=r'\s+', engine='python')
+            except:
+                df = pd.read_csv(uploaded_file, sep='\t')
+        else:
+            df = pd.read_csv(uploaded_file)
         
         # Case-insensitive column matching
         col_match = [col for col in df.columns if column_name.lower() in col.lower()]
@@ -42,13 +52,13 @@ def load_and_process_signal(uploaded_file, column_name):
             st.error(f"No valid data found in {uploaded_file.name}")
             return None
             
-        return signal_data
+        return signal_data.flatten()
         
     except Exception as e:
         st.error(f"Error processing {uploaded_file.name}: {str(e)}")
         return None
 
-def butter_bandpass(lowcut, highcut, fs, order=3):
+def butter_bandpass(lowcut, highcut, fs, order=4):
     """Design Butterworth bandpass filter"""
     nyq = 0.5 * fs
     low = lowcut / nyq
@@ -56,330 +66,394 @@ def butter_bandpass(lowcut, highcut, fs, order=3):
     b, a = signal.butter(order, [low, high], btype='band')
     return b, a
 
-def apply_filter(data, lowcut, highcut, fs, order=3):
+def apply_filter(data, lowcut, highcut, fs, order=4):
     """Apply bandpass filter to signal"""
-    b, a = butter_bandpass(lowcut, highcut, fs, order)
-    y = signal.filtfilt(b, a, data)
-    return y
+    try:
+        b, a = butter_bandpass(lowcut, highcut, fs, order)
+        y = signal.filtfilt(b, a, data)
+        return y
+    except Exception as e:
+        st.warning(f"Filter application failed: {e}")
+        return data
 
 def calculate_rms(data):
     """Calculate RMS amplitude of signal"""
     return np.sqrt(np.mean(data**2))
 
-def get_apollonian_locus(p1, p2, k):
-    """Calculate Apollonian circle parameters"""
-    x1, y1 = p1
-    x2, y2 = p2
-    k_sq = k**2
+def perform_localization_2d(sensors, attenuation_n):
+    """Perform 2D localization using 3 sensors"""
+    if len(sensors) < 3:
+        return None
     
-    # Handle k=1 case (perpendicular bisector)
-    if abs(k - 1.0) < 1e-7:
-        A = 2*(x1 - x2)
-        B = 2*(y1 - y2)
-        C = x2**2 + y2**2 - x1**2 - y1**2
-        return {'type': 'line', 'A': A, 'B': B, 'C': C}
+    i1, i2, i3 = sensors[0]['intensity'], sensors[1]['intensity'], sensors[2]['intensity']
+    k21 = (i1 / i2) ** (1 / attenuation_n)
+    k31 = (i1 / i3) ** (1 / attenuation_n)
     
-    # Calculate circle parameters
-    denom = 1 - k_sq
-    h = (x2 - k_sq*x1) / denom
-    kc = (y2 - k_sq*y1) / denom
+    loc1, loc2, loc3 = sensors[0]['location'], sensors[1]['location'], sensors[2]['location']
+    x1, y1 = loc1[0], loc1[1]
+    x2, y2 = loc2[0], loc2[1]
+    x3, y3 = loc3[0], loc3[1]
     
-    # Calculate radius
-    d_p1p2 = np.sqrt((x1-x2)**2 + (y1-y2)**2)
-    r = (k * d_p1p2) / abs(denom)
+    # Matrix formulation for 2D localization
+    A = 2 * np.array([
+        [x2 - k21**2 * x1, y2 - k21**2 * y1],
+        [x3 - k31**2 * x1, y3 - k31**2 * y1]
+    ])
     
-    return {'type': 'circle', 'center': (h, kc), 'radius': r}
+    b = np.array([
+        (x2**2 + y2**2) - k21**2 * (x1**2 + y1**2),
+        (x3**2 + y3**2) - k31**2 * (x1**2 + y1**2)
+    ])
+    
+    try:
+        if np.linalg.matrix_rank(A) == 2:
+            solution = np.linalg.solve(A, b)
+            return solution
+    except:
+        pass
+    
+    return None
 
-def intersect_loci(locus1, locus2):
-    """Find intersection points between two loci"""
-    if locus1['type'] == 'line' and locus2['type'] == 'line':
-        return intersect_two_lines(locus1, locus2)
-    elif locus1['type'] == 'circle' and locus2['type'] == 'circle':
-        return intersect_two_circles(locus1, locus2)
-    elif (locus1['type'] == 'line' and locus2['type'] == 'circle') or \
-         (locus1['type'] == 'circle' and locus2['type'] == 'line'):
-        line = locus1 if locus1['type'] == 'line' else locus2
-        circle = locus2 if locus2['type'] == 'circle' else locus1
-        return intersect_line_circle(line, circle)
-    return [], []
+def perform_localization_3d(sensors, attenuation_n):
+    """Perform 3D localization using 4+ sensors"""
+    if len(sensors) < 4:
+        return None
+    
+    i1, i2, i3, i4 = sensors[0]['intensity'], sensors[1]['intensity'], sensors[2]['intensity'], sensors[3]['intensity']
+    k21 = (i1 / i2) ** (1 / attenuation_n)
+    k31 = (i1 / i3) ** (1 / attenuation_n)
+    k41 = (i1 / i4) ** (1 / attenuation_n)
+    
+    loc1, loc2, loc3, loc4 = sensors[0]['location'], sensors[1]['location'], sensors[2]['location'], sensors[3]['location']
+    x1, y1, z1 = loc1[0], loc1[1], loc1[2]
+    x2, y2, z2 = loc2[0], loc2[1], loc2[2]
+    x3, y3, z3 = loc3[0], loc3[1], loc3[2]
+    x4, y4, z4 = loc4[0], loc4[1], loc4[2]
+    
+    # Matrix formulation for 3D localization
+    A = 2 * np.array([
+        [x2 - k21**2 * x1, y2 - k21**2 * y1, z2 - k21**2 * z1],
+        [x3 - k31**2 * x1, y3 - k31**2 * y1, z3 - k31**2 * z1],
+        [x4 - k41**2 * x1, y4 - k41**2 * y1, z4 - k41**2 * z1]
+    ])
+    
+    b = np.array([
+        (x2**2 + y2**2 + z2**2) - k21**2 * (x1**2 + y1**2 + z1**2),
+        (x3**2 + y3**2 + z3**2) - k31**2 * (x1**2 + y1**2 + z1**2),
+        (x4**2 + y4**2 + z4**2) - k41**2 * (x1**2 + y1**2 + z1**2)
+    ])
+    
+    try:
+        if np.linalg.matrix_rank(A) == 3:
+            solution = np.linalg.solve(A, b)
+            return solution
+    except:
+        pass
+    
+    return None
 
-def intersect_two_lines(line1, line2):
-    """Find intersection of two lines"""
-    A1, B1, C1 = line1['A'], line1['B'], line1['C']
-    A2, B2, C2 = line2['A'], line2['B'], line2['C']
+def create_2d_plot(sensors, estimated_location, actual_source=None):
+    """Create 2D matplotlib plot"""
+    fig, ax = plt.subplots(figsize=(12, 9))
     
-    det = A1*B2 - A2*B1
-    if abs(det) < 1e-7:
-        return []  # Parallel lines
+    # Plot sensors
+    for i, sensor in enumerate(sensors):
+        ax.plot(sensor['location'][0], sensor['location'][1], 'o', 
+                markersize=12, label=f"Sensor {i+1}")
     
-    x = (B1*C2 - B2*C1) / det
-    y = (A2*C1 - A1*C2) / det
-    return [(x, y)]
+    # Plot estimated location
+    if estimated_location is not None:
+        ax.plot(estimated_location[0], estimated_location[1], 'r*', 
+                markersize=20, label='Estimated Source')
+        ax.text(estimated_location[0]+0.5, estimated_location[1]+0.5, 
+                f'Est: ({estimated_location[0]:.1f}, {estimated_location[1]:.1f})', 
+                fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
+    
+    # Plot actual source if provided
+    if actual_source:
+        ax.plot(actual_source[0], actual_source[1], 'm*', 
+                markersize=20, label='Actual Source')
+    
+    ax.set_xlabel('X Coordinate')
+    ax.set_ylabel('Y Coordinate')
+    ax.set_title('2D Vibration Source Localization')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.axis('equal')
+    
+    return fig
 
-def intersect_two_circles(circle1, circle2):
-    """Find intersection of two circles"""
-    h1, k1 = circle1['center']
-    r1 = circle1['radius']
-    h2, k2 = circle2['center']
-    r2 = circle2['radius']
+def create_3d_plot(sensors, estimated_location, actual_source=None):
+    """Create 3D Plotly plot"""
+    fig = go.Figure()
     
-    # Distance between centers
-    d = np.sqrt((h2-h1)**2 + (k2-k1)**2)
+    # Plot sensors
+    sensor_colors = ['blue', 'red', 'green', 'orange', 'purple']
+    for i, sensor in enumerate(sensors):
+        color = sensor_colors[i % len(sensor_colors)]
+        fig.add_trace(go.Scatter3d(
+            x=[sensor['location'][0]], 
+            y=[sensor['location'][1]], 
+            z=[sensor['location'][2]],
+            mode='markers+text',
+            marker=dict(size=10, color=color),
+            text=[f'S{i+1}'],
+            textposition="top center",
+            name=f'Sensor {i+1}'
+        ))
     
-    # Check for no solution
-    if d > r1 + r2 or d < abs(r1 - r2):
-        return []
+    # Plot estimated location
+    if estimated_location is not None:
+        fig.add_trace(go.Scatter3d(
+            x=[estimated_location[0]], 
+            y=[estimated_location[1]], 
+            z=[estimated_location[2]],
+            mode='markers+text',
+            marker=dict(size=15, color='red', symbol='diamond'),
+            text=['EST'],
+            textposition="top center",
+            name='Estimated Source'
+        ))
     
-    # Calculate intersection points
-    a = (r1**2 - r2**2 + d**2) / (2*d)
-    h = a / d
-    p = np.sqrt(r1**2 - a**2)
+    # Plot actual source if provided
+    if actual_source and len(actual_source) >= 3:
+        fig.add_trace(go.Scatter3d(
+            x=[actual_source[0]], 
+            y=[actual_source[1]], 
+            z=[actual_source[2]],
+            mode='markers+text',
+            marker=dict(size=15, color='magenta', symbol='star'),
+            text=['TRUE'],
+            textposition="top center",
+            name='Actual Source'
+        ))
     
-    # Midpoint
-    xm = h1 + h*(h2 - h1)
-    ym = k1 + h*(k2 - k1)
+    fig.update_layout(
+        title="3D Vibration Source Localization",
+        scene=dict(
+            xaxis_title="X Position",
+            yaxis_title="Y Position",
+            zaxis_title="Z Position"
+        ),
+        width=1000,
+        height=700
+    )
     
-    # Intersection points
-    xs1 = xm + p*(k2 - k1)/d
-    ys1 = ym - p*(h2 - h1)/d
-    xs2 = xm - p*(k2 - k1)/d
-    ys2 = ym + p*(h2 - h1)/d
-    
-    if abs(p) < 1e-7:  # Tangent (one solution)
-        return [(xs1, ys1)]
-    return [(xs1, ys1), (xs2, ys2)]
-
-def intersect_line_circle(line, circle):
-    """Find intersection of line and circle"""
-    A, B, C = line['A'], line['B'], line['C']
-    h, k = circle['center']
-    r = circle['radius']
-    
-    # Handle vertical line
-    if abs(B) < 1e-7:
-        x = -C/A
-        # Solve quadratic for y
-        a = 1
-        b = -2*k
-        c = k**2 - r**2 + (x - h)**2
-        disc = b**2 - 4*a*c
-        if disc < 0:
-            return []
-        y1 = (-b + np.sqrt(disc)) / (2*a)
-        y2 = (-b - np.sqrt(disc)) / (2*a)
-        return [(x, y1), (x, y2)]
-    
-    # Non-vertical line: y = mx + c
-    m = -A/B
-    c = -C/B
-    
-    # Solve quadratic equation
-    a_coeff = 1 + m**2
-    b_coeff = 2*(m*(c - k) - h)
-    c_coeff = h**2 + (c - k)**2 - r**2
-    
-    disc = b_coeff**2 - 4*a_coeff*c_coeff
-    if disc < 0:
-        return []
-    
-    # Calculate x coordinates
-    x1 = (-b_coeff + np.sqrt(disc)) / (2*a_coeff)
-    x2 = (-b_coeff - np.sqrt(disc)) / (2*a_coeff)
-    
-    # Calculate y coordinates
-    y1 = m*x1 + c
-    y2 = m*x2 + c
-    
-    if disc < 1e-7:  # Tangent (one solution)
-        return [(x1, y1)]
-    return [(x1, y1), (x2, y2)]
+    return fig
 
 # Main application
 def main():
-    # Welcome screen
-    st.title(" Nevera - Vibration Source Locator")
-    st.image("https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1200&h=400", 
-             caption="Vibration Analysis System", use_container_width=True)
+    # Title and description
+    st.title("📍 Nevera - Advanced Vibration Source Locator")
     
     st.markdown("""
-    ## Welcome to Nevera!
-    This application estimates the location of vibration sources using data from three sensors.
-    Upload your sensor data and configure the parameters to get started.
+    ## Welcome to Advanced Nevera!
+    This application performs vibration source localization using multiple sensors with automatic dimension detection:
+    - **3 Sensors**: 2D localization with matplotlib visualization
+    - **4+ Sensors**: 3D localization with interactive Plotly visualization
     """)
     
-    with st.expander("How it works:"):
+    with st.expander("📖 How it works:"):
         st.markdown("""
-        1. **Upload CSV files** containing vibration data from three sensors
-        2. **Specify sensor locations** in 2D coordinates
-        3. **Set parameters**: Sampling rate, frequency filter range, and attenuation exponent
-        4. **Process data** to estimate vibration source location
-        5. **Visualize results** on an interactive plot
+        1. **Upload sensor data files** (in CSV format)
+        2. **Configure sensor locations** in 2D or 3D coordinates
+        3. **Set processing parameters**: sampling rate, filter range, attenuation model
+        4. **Automatic analysis**: The app detects the number of sensors and chooses the appropriate method
+        5. **Visualize results**: 2D plots for 3 sensors, 3D interactive plots for 4+ sensors
         
-        The algorithm uses:
-        - Bandpass filtering to isolate relevant frequencies
-        - RMS amplitude calculation for signal intensity
-        - Geometric loci (Apollonian circles) based on attenuation model
-        - Intersection of loci to estimate source location
+        **Algorithms:**
+        - Butterworth bandpass filtering for signal preprocessing
+        - RMS amplitude calculation for intensity measurement
+        - Matrix-based trilateration for multi-dimensional localization
+        - Automatic dimension detection based on sensor count
         """)
     
     st.divider()
     
-    # Sidebar for inputs
+    # Sidebar configuration
     with st.sidebar:
-        st.header("Configuration")
+        st.header("⚙️ Configuration")
         
-        # Sensor locations
-        st.subheader("Sensor Locations")
-        s1_x = st.number_input("Sensor 1 X", value=0.0)
-        s1_y = st.number_input("Sensor 1 Y", value=0.0)
-        s2_x = st.number_input("Sensor 2 X", value=0.0)
-        s2_y = st.number_input("Sensor 2 Y", value=26.5)
-        s3_x = st.number_input("Sensor 3 X", value=30.0)
-        s3_y = st.number_input("Sensor 3 Y", value=26.5)
-        
-        # Actual source (optional)
-        st.subheader("Actual Source (Optional)")
-        actual_x = st.number_input("Actual Source X", value=4.0)
-        actual_y = st.number_input("Actual Source Y", value=14.0)
-        show_actual = st.checkbox("Show actual source on plot", value=True)
-        
-        # Parameters
-        st.subheader("Processing Parameters")
-        column_name = st.text_input("Data Column Name", "acceleration")
+        # Signal processing parameters
+        st.subheader("🔬 Signal Processing")
+        column_name = st.text_input("Data Column Name", "accel_y_g")
         sampling_freq = st.number_input("Sampling Frequency (Hz)", min_value=1.0, value=333.33)
-        low_cutoff = st.number_input("Low Cutoff Frequency (Hz)", min_value=0.1, value=1.0)
-        high_cutoff = st.number_input("High Cutoff Frequency (Hz)", min_value=1.0, value=22.0)
-        attenuation_n = st.number_input("Attenuation Exponent (n)", min_value=0.1, value=1.0, 
-                                       help="1 for cylindrical waves, 2 for spherical waves")
+        low_cutoff = st.number_input("Low Cutoff (Hz)", min_value=0.1, value=10.0)
+        high_cutoff = st.number_input("High Cutoff (Hz)", min_value=1.0, value=50.0)
+        filter_order = st.number_input("Filter Order", min_value=1, max_value=10, value=4)
+        attenuation_n = st.number_input("Attenuation Exponent", min_value=0.1, value=2.0)
+        
+        # Actual source location
+        st.subheader("🎯 Known Source (Optional)")
+        actual_x = st.number_input("Actual Source X", value=23.5)
+        actual_y = st.number_input("Actual Source Y", value=5.0)
+        actual_z = st.number_input("Actual Source Z", value=1.0)
+        show_actual = st.checkbox("Show actual source", value=True)
     
-    # Main content area
-    st.header("Upload Sensor Data")
+    # File upload section
+    st.header("📁 Upload Sensor Data")
     
-    # File uploaders
-    col1, col2, col3 = st.columns(3)
+    # Create columns for sensor uploads
+    col1, col2 = st.columns(2)
+    col3, col4 = st.columns(2)
+    
     with col1:
-        st.subheader("Sensor 1 Data")
-        sensor1_file = st.file_uploader("Upload CSV for Sensor 1", type="csv", key="s1")
+        st.subheader("📡 Sensor 1")
+        sensor1_file = st.file_uploader("Upload Sensor 1", type=["csv", "txt"], key="s1")
+        s1_x = st.number_input("S1 X", value=0.0, key="s1x")
+        s1_y = st.number_input("S1 Y", value=0.0, key="s1y")
+        s1_z = st.number_input("S1 Z", value=0.0, key="s1z")
+    
     with col2:
-        st.subheader("Sensor 2 Data")
-        sensor2_file = st.file_uploader("Upload CSV for Sensor 2", type="csv", key="s2")
+        st.subheader("📡 Sensor 2")
+        sensor2_file = st.file_uploader("Upload Sensor 2", type=["csv", "txt"], key="s2")
+        s2_x = st.number_input("S2 X", value=20.0, key="s2x")
+        s2_y = st.number_input("S2 Y", value=24.5, key="s2y")
+        s2_z = st.number_input("S2 Z", value=0.0, key="s2z")
+    
     with col3:
-        st.subheader("Sensor 3 Data")
-        sensor3_file = st.file_uploader("Upload CSV for Sensor 3", type="csv", key="s3")
+        st.subheader("📡 Sensor 3")
+        sensor3_file = st.file_uploader("Upload Sensor 3", type=["csv", "txt"], key="s3")
+        s3_x = st.number_input("S3 X", value=38.0, key="s3x")
+        s3_y = st.number_input("S3 Y", value=0.0, key="s3y")
+        s3_z = st.number_input("S3 Z", value=0.0, key="s3z")
+    
+    with col4:
+        st.subheader("📡 Sensor 4 (Optional)")
+        sensor4_file = st.file_uploader("Upload Sensor 4", type=["csv", "txt"], key="s4")
+        s4_x = st.number_input("S4 X", value=20.0, key="s4x")
+        s4_y = st.number_input("S4 Y", value=13.5, key="s4y")
+        s4_z = st.number_input("S4 Z", value=-10.0, key="s4z")
     
     # Process button
-    if st.button("Locate Vibration Source", use_container_width=True):
-        if not (sensor1_file and sensor2_file and sensor3_file):
-            st.error("Please upload all three sensor data files")
-            return
-            
-        with st.spinner("Processing data..."):
-            try:
-                # Load and process data
-                signal1 = load_and_process_signal(sensor1_file, column_name)
-                signal2 = load_and_process_signal(sensor2_file, column_name)
-                signal3 = load_and_process_signal(sensor3_file, column_name)
-                
-                if signal1 is None or signal2 is None or signal3 is None:
-                    return
-                
-                # Apply filters
-                filtered1 = apply_filter(signal1, low_cutoff, high_cutoff, sampling_freq)
-                filtered2 = apply_filter(signal2, low_cutoff, high_cutoff, sampling_freq)
-                filtered3 = apply_filter(signal3, low_cutoff, high_cutoff, sampling_freq)
-                
-                # Calculate intensities
-                i1 = calculate_rms(filtered1)
-                i2 = calculate_rms(filtered2)
-                i3 = calculate_rms(filtered3)
-                
-                # Calculate distance ratios
-                k21 = (i1 / i2) ** (1/attenuation_n)
-                k31 = (i1 / i3) ** (1/attenuation_n)
-                
-                # Get loci
-                locus12 = get_apollonian_locus((s1_x, s1_y), (s2_x, s2_y), k21)
-                locus13 = get_apollonian_locus((s1_x, s1_y), (s3_x, s3_y), k31)
-                
-                # Find intersections
-                intersections = intersect_loci(locus12, locus13)
-                
-                # Create plot
-                fig, ax = plt.subplots(figsize=(10, 8))
-                
-                # Plot sensor locations
-                ax.plot(s1_x, s1_y, 'bo', markersize=10, label='Sensor 1')
-                ax.plot(s2_x, s2_y, 'ro', markersize=10, label='Sensor 2')
-                ax.plot(s3_x, s3_y, 'go', markersize=10, label='Sensor 3')
-                
-                # Plot actual source if enabled
-                if show_actual:
-                    ax.plot(actual_x, actual_y, 'm*', markersize=15, label='Actual Source')
-                
-                # Plot loci
-                plot_locus(ax, locus12, 'S1-S2 Locus', 'blue')
-                plot_locus(ax, locus13, 'S1-S3 Locus', 'green')
-                
-                # Plot intersections
-                if intersections:
-                    for i, (x, y) in enumerate(intersections):
-                        ax.plot(x, y, 'ks', markersize=12, fillstyle='none', 
-                                label=f'Estimated Source {i+1}')
-                        ax.text(x+0.5, y+0.5, f'({x:.1f}, {y:.1f})', fontsize=9)
-                
-                # Configure plot
-                ax.set_xlabel('X Coordinate')
-                ax.set_ylabel('Y Coordinate')
-                ax.set_title('Vibration Source Localization')
-                ax.legend(loc='best')
-                ax.grid(True)
-                ax.axis('equal')
-                
-                # Display results
-                st.success("Processing complete!")
-                st.pyplot(fig)
-                
-                # Display numerical results
-                st.subheader("Results")
-                st.write(f"- **Sensor 1 Intensity (RMS):** {i1:.4f}")
-                st.write(f"- **Sensor 2 Intensity (RMS):** {i2:.4f}")
-                st.write(f"- **Sensor 3 Intensity (RMS):** {i3:.4f}")
-                st.write(f"- **Distance Ratio S2/S1 (k21):** {k21:.4f}")
-                st.write(f"- **Distance Ratio S3/S1 (k31):** {k31:.4f}")
-                
-                if intersections:
-                    for i, (x, y) in enumerate(intersections):
-                        st.success(f"Estimated Source Location {i+1}: ({x:.2f}, {y:.2f})")
-                        if show_actual:
-                            distance = np.sqrt((x - actual_x)**2 + (y - actual_y)**2)
-                            st.info(f"Distance from actual source: {distance:.2f} units")
-                else:
-                    st.warning("No intersection points found. Try adjusting parameters.")
+    if st.button("🚀 Perform Advanced Localization", use_container_width=True, type="primary"):
+        # Check minimum requirements
+        uploaded_files = [sensor1_file, sensor2_file, sensor3_file, sensor4_file]
+        sensor_locations = [
+            [s1_x, s1_y, s1_z],
+            [s2_x, s2_y, s2_z],
+            [s3_x, s3_y, s3_z],
+            [s4_x, s4_y, s4_z]
+        ]
+        
+        # Process uploaded sensors
+        sensors = []
+        for i, (file, location) in enumerate(zip(uploaded_files, sensor_locations)):
+            if file is not None:
+                signal_data = load_and_process_signal(file, column_name)
+                if signal_data is not None:
+                    # Apply filtering
+                    filtered_signal = apply_filter(signal_data, low_cutoff, high_cutoff, sampling_freq, filter_order)
+                    intensity = calculate_rms(filtered_signal)
                     
-            except Exception as e:
-                st.error(f"Processing error: {str(e)}")
-
-def plot_locus(ax, locus, label, color):
-    """Plot geometric locus on matplotlib axis"""
-    if locus['type'] == 'line':
-        # For lines: plot within current axis limits
-        xlim = ax.get_xlim()
-        if abs(locus['B']) < 1e-7:  # Vertical line
-            x = -locus['C']/locus['A']
-            ylim = ax.get_ylim()
-            ax.plot([x, x], ylim, '--', color=color, label=label)
+                    sensors.append({
+                        'location': location,
+                        'intensity': intensity,
+                        'signal': signal_data,
+                        'label': f"S{i+1}",
+                        'file': file.name
+                    })
+        
+        num_sensors = len(sensors)
+        
+        if num_sensors < 3:
+            st.error("❌ At least 3 sensors are required for localization!")
+            return
+        
+        # Display sensor information
+        st.success(f"✅ {num_sensors} sensors detected!")
+        
+        # Create sensor summary table
+        sensor_data = []
+        for sensor in sensors:
+            sensor_data.append({
+                'Sensor': sensor['label'],
+                'File': sensor['file'],
+                'X': sensor['location'][0],
+                'Y': sensor['location'][1],
+                'Z': sensor['location'][2],
+                'RMS Intensity': f"{sensor['intensity']:.6f}",
+                'Samples': len(sensor['signal'])
+            })
+        
+        st.subheader("📊 Sensor Summary")
+        st.dataframe(pd.DataFrame(sensor_data), use_container_width=True)
+        
+        # Perform localization based on sensor count
+        with st.spinner("🔍 Performing localization..."):
+            if num_sensors == 3:
+                st.info("🎯 **2D Localization Mode** - Using 3 sensors")
+                estimated_location = perform_localization_2d(sensors, attenuation_n)
+                localization_mode = "2D"
+            else:
+                st.info("🎯 **3D Localization Mode** - Using 4+ sensors")
+                estimated_location = perform_localization_3d(sensors, attenuation_n)
+                localization_mode = "3D"
+        
+        if estimated_location is None:
+            st.error("❌ Localization failed. Try adjusting parameters or sensor positions.")
+            return
+        
+        # Display results
+        st.subheader("📈 Localization Results")
+        
+        # Results metrics
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Mode", localization_mode)
+            st.metric("Sensors Used", num_sensors)
+        
+        with col2:
+            st.metric("Estimated X", f"{estimated_location[0]:.2f}")
+            st.metric("Estimated Y", f"{estimated_location[1]:.2f}")
+        
+        with col3:
+            if len(estimated_location) > 2:
+                st.metric("Estimated Z", f"{estimated_location[2]:.2f}")
+            else:
+                st.metric("Estimated Z", "N/A (2D mode)")
+            
+            # Calculate error if actual source is provided
+            if show_actual:
+                if localization_mode == "2D":
+                    actual = [actual_x, actual_y]
+                    error = np.linalg.norm(estimated_location - np.array(actual))
+                else:
+                    actual = [actual_x, actual_y, actual_z]
+                    error = np.linalg.norm(estimated_location - np.array(actual))
+                st.metric("Error from True Source", f"{error:.2f}")
+        
+        # Create visualization
+        st.subheader("📊 Visualization")
+        
+        actual_source = [actual_x, actual_y, actual_z] if show_actual else None
+        
+        if localization_mode == "2D":
+            fig = create_2d_plot(sensors, estimated_location, actual_source)
+            st.pyplot(fig)
         else:
-            # y = mx + c
-            m = -locus['A']/locus['B']
-            c = -locus['C']/locus['B']
-            x_vals = np.array(xlim)
-            y_vals = m*x_vals + c
-            ax.plot(x_vals, y_vals, '--', color=color, label=label)
-    else:
-        # For circles
-        circle = plt.Circle(locus['center'], locus['radius'], 
-                           color=color, fill=False, linestyle=':', label=label)
-        ax.add_patch(circle)
+            fig = create_3d_plot(sensors, estimated_location, actual_source)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Additional analysis
+        with st.expander("🔬 Detailed Analysis"):
+            st.subheader("Intensity Ratios")
+            if num_sensors >= 2:
+                k21 = (sensors[0]['intensity'] / sensors[1]['intensity']) ** (1/attenuation_n)
+                st.write(f"**k21 (S1/S2):** {k21:.4f}")
+            if num_sensors >= 3:
+                k31 = (sensors[0]['intensity'] / sensors[2]['intensity']) ** (1/attenuation_n)
+                st.write(f"**k31 (S1/S3):** {k31:.4f}")
+            if num_sensors >= 4:
+                k41 = (sensors[0]['intensity'] / sensors[3]['intensity']) ** (1/attenuation_n)
+                st.write(f"**k41 (S1/S4):** {k41:.4f}")
+            
+            st.subheader("Processing Parameters")
+            st.write(f"**Filter Range:** {low_cutoff} - {high_cutoff} Hz")
+            st.write(f"**Filter Order:** {filter_order}")
+            st.write(f"**Sampling Frequency:** {sampling_freq} Hz")
+            st.write(f"**Attenuation Exponent:** {attenuation_n}")
 
 if __name__ == "__main__":
     main()
