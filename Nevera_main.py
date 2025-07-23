@@ -262,7 +262,7 @@ def main():
     - Uses all available sensors for better accuracy
     """)
     
-    with st.expander("📖 How it works:"):
+    with st.expander("How it works:"):
         st.markdown("""
         1. **Upload sensor data files** (in CSV format)
         2. **Configure sensor locations** in 2D or 3D coordinates
@@ -293,49 +293,49 @@ def main():
         attenuation_n = st.number_input("Attenuation Exponent", min_value=0.1, value=2.0)
         
         # Actual source location
-        st.subheader("🎯 Known Source (Optional)")
+        st.subheader(" Known Source (Optional)")
         actual_x = st.number_input("Actual Source X", value=23.5)
         actual_y = st.number_input("Actual Source Y", value=5.0)
         actual_z = st.number_input("Actual Source Z", value=1.0)
         show_actual = st.checkbox("Show actual source", value=True)
     
     # File upload section
-    st.header("📁 Upload Sensor Data")
+    st.header(" Upload Sensor Data")
     
     # Create columns for sensor uploads
     col1, col2 = st.columns(2)
     col3, col4 = st.columns(2)
     
     with col1:
-        st.subheader("📡 Sensor 1")
+        st.subheader(" Sensor 1")
         sensor1_file = st.file_uploader("Upload Sensor 1", type=["csv", "txt"], key="s1")
         s1_x = st.number_input("S1 X", value=0.0, key="s1x")
         s1_y = st.number_input("S1 Y", value=0.0, key="s1y")
         s1_z = st.number_input("S1 Z", value=0.0, key="s1z")
     
     with col2:
-        st.subheader("📡 Sensor 2")
+        st.subheader(" Sensor 2")
         sensor2_file = st.file_uploader("Upload Sensor 2", type=["csv", "txt"], key="s2")
         s2_x = st.number_input("S2 X", value=20.0, key="s2x")
         s2_y = st.number_input("S2 Y", value=24.5, key="s2y")
         s2_z = st.number_input("S2 Z", value=0.0, key="s2z")
     
     with col3:
-        st.subheader("📡 Sensor 3")
+        st.subheader(" Sensor 3")
         sensor3_file = st.file_uploader("Upload Sensor 3", type=["csv", "txt"], key="s3")
         s3_x = st.number_input("S3 X", value=38.0, key="s3x")
         s3_y = st.number_input("S3 Y", value=0.0, key="s3y")
         s3_z = st.number_input("S3 Z", value=0.0, key="s3z")
     
     with col4:
-        st.subheader("📡 Sensor 4 (Optional)")
+        st.subheader(" Sensor 4 (Optional)")
         sensor4_file = st.file_uploader("Upload Sensor 4", type=["csv", "txt"], key="s4")
         s4_x = st.number_input("S4 X", value=20.0, key="s4x")
         s4_y = st.number_input("S4 Y", value=13.5, key="s4y")
         s4_z = st.number_input("S4 Z", value=-10.0, key="s4z")
     
     # Process button
-    if st.button("🚀 Perform Advanced Localization", use_container_width=True, type="primary"):
+    if st.button(" Perform Advanced Localization", use_container_width=True, type="primary"):
         # Check minimum requirements
         uploaded_files = [sensor1_file, sensor2_file, sensor3_file, sensor4_file]
         sensor_locations = [
@@ -370,7 +370,7 @@ def main():
         num_sensors = len(sensors)
         
         if num_sensors < 3:
-            st.error("❌ At least 3 sensors are required for localization!")
+            st.error(" At least 3 sensors are required for localization!")
             return
         
         # Display sensor information
@@ -390,7 +390,7 @@ def main():
                 'Samples': len(sensor['signal'])
             })
         
-        st.subheader("📊 Sensor Summary")
+        st.subheader(" Sensor Summary")
         st.dataframe(pd.DataFrame(sensor_data), use_container_width=True)
         
         # Perform localization
@@ -408,7 +408,7 @@ def main():
             estimated_location = estimated_location[:2]
         
         # Display results
-        st.subheader("📈 Localization Results")
+        st.subheader(" Localization Results")
         
         # Results metrics
         col1, col2, col3 = st.columns(3)
@@ -437,7 +437,7 @@ def main():
                 st.metric("Error from True Source", f"{error:.2f}")
         
         # Create visualization
-        st.subheader("🗺️ Visualization")
+        st.subheader(" Visualization")
         
         actual_source = [actual_x, actual_y, actual_z] if show_actual else None
         
