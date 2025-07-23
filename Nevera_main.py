@@ -262,7 +262,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                 x=x_cyl, y=y_cyl, z=z_cyl_mesh,
                 colorscale=[[0, 'red'], [0.5, 'orange'], [1, 'red']],
                 opacity=0.8,
-                name=f'🎯 VIBRATION SOURCE: {shape.label}',
+                name=f' VIBRATION SOURCE: {shape.label}',
                 showscale=False,
                 showlegend=True
             ))
@@ -277,7 +277,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                     symbol='diamond',
                     line=dict(color='white', width=4)
                 ),
-                text=[f'🎯 VIBRATION<br>SOURCE<br>{shape.label}'],
+                text=[f' VIBRATION<br>SOURCE<br>{shape.label}'],
                 textposition="top center",
                 textfont=dict(size=12, color='red', family='Arial Black'),
                 name='Vibration Source Center',
@@ -325,6 +325,19 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
             name=f'Sensor {i+1}'
         ))
     
+    # Plot estimated location
+    #if estimated_location is not None:
+        #fig.add_trace(go.Scatter3d(
+            #x=[estimated_location[0]], 
+            #y=[estimated_location[1]], 
+            #z=[estimated_location[2]],
+            #mode='markers+text',
+            #marker=dict(size=15, color='red', symbol='diamond'),
+            #text=['EST'],
+            #textposition="top center",
+            #name='Estimated Source'
+        #))
+    
     # Plot actual source if provided
     if actual_source and len(actual_source) >= 3:
         fig.add_trace(go.Scatter3d(
@@ -354,10 +367,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
 # Main application
 def main():
     # Title and description
-    st.title("📍 Nevera - Advanced Vibration Source Locator")
-    
-    # Display logo
-    st.image("assets/logo.png", caption="Nevera Logo", width=200)
+    st.title(" Nevera - Advanced Vibration Source Locator")
     
     st.markdown("""
     ## Welcome to Advanced Nevera!
@@ -366,7 +376,7 @@ def main():
     - **4+ Sensors**: 3D localization with interactive Plotly visualization including vibration cylinders
     """)
     
-    with st.expander("📖 How it works:"):
+    with st.expander("How it works:"):
         st.markdown("""
         1. **Upload sensor data files** (in CSV format)
         2. **Configure sensor locations** in 2D or 3D coordinates
@@ -386,10 +396,10 @@ def main():
     
     # Sidebar configuration
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.header("Configuration")
         
         # Signal processing parameters
-        st.subheader("🔬 Signal Processing")
+        st.subheader("Signal Processing")
         column_name = st.text_input("Data Column Name", "accel_y_g")
         sampling_freq = st.number_input("Sampling Frequency (Hz)", min_value=1.0, value=333.33)
         low_cutoff = st.number_input("Low Cutoff (Hz)", min_value=0.1, value=10.0)
@@ -398,49 +408,49 @@ def main():
         attenuation_n = st.number_input("Attenuation Exponent", min_value=0.1, value=2.0)
         
         # Actual source location
-        st.subheader("🎯 Known Source (Optional)")
+        st.subheader("Known Source (Optional)")
         actual_x = st.number_input("Actual Source X", value=23.5)
         actual_y = st.number_input("Actual Source Y", value=5.0)
         actual_z = st.number_input("Actual Source Z", value=1.0)
         show_actual = st.checkbox("Show actual source", value=True)
     
     # File upload section
-    st.header("📁 Upload Sensor Data")
+    st.header("Upload Sensor Data")
     
     # Create columns for sensor uploads
     col1, col2 = st.columns(2)
     col3, col4 = st.columns(2)
     
     with col1:
-        st.subheader("📡 Sensor 1")
+        st.subheader("Sensor 1")
         sensor1_file = st.file_uploader("Upload Sensor 1", type=["csv", "txt"], key="s1")
         s1_x = st.number_input("S1 X", value=0.0, key="s1x")
         s1_y = st.number_input("S1 Y", value=0.0, key="s1y")
         s1_z = st.number_input("S1 Z", value=0.0, key="s1z")
     
     with col2:
-        st.subheader("📡 Sensor 2")
+        st.subheader("Sensor 2")
         sensor2_file = st.file_uploader("Upload Sensor 2", type=["csv", "txt"], key="s2")
         s2_x = st.number_input("S2 X", value=20.0, key="s2x")
         s2_y = st.number_input("S2 Y", value=24.5, key="s2y")
         s2_z = st.number_input("S2 Z", value=0.0, key="s2z")
     
     with col3:
-        st.subheader("📡 Sensor 3")
+        st.subheader("Sensor 3")
         sensor3_file = st.file_uploader("Upload Sensor 3", type=["csv", "txt"], key="s3")
         s3_x = st.number_input("S3 X", value=38.0, key="s3x")
         s3_y = st.number_input("S3 Y", value=0.0, key="s3y")
         s3_z = st.number_input("S3 Z", value=0.0, key="s3z")
     
     with col4:
-        st.subheader("📡 Sensor 4 (Optional)")
+        st.subheader("Sensor 4 (Optional)")
         sensor4_file = st.file_uploader("Upload Sensor 4", type=["csv", "txt"], key="s4")
         s4_x = st.number_input("S4 X", value=20.0, key="s4x")
         s4_y = st.number_input("S4 Y", value=13.5, key="s4y")
         s4_z = st.number_input("S4 Z", value=-10.0, key="s4z")
     
     # Process button
-    if st.button("🚀 Perform Advanced Localization", use_container_width=True, type="primary"):
+    if st.button("Perform Advanced Localization", use_container_width=True, type="primary"):
         # Check minimum requirements
         uploaded_files = [sensor1_file, sensor2_file, sensor3_file, sensor4_file]
         sensor_locations = [
@@ -490,26 +500,26 @@ def main():
                 'Samples': len(sensor['signal'])
             })
         
-        st.subheader("📊 Sensor Summary")
+        st.subheader("Sensor Summary")
         st.dataframe(pd.DataFrame(sensor_data), use_container_width=True)
         
         # Perform localization based on sensor count
-        with st.spinner("🔍 Performing localization..."):
+        with st.spinner("Performing localization..."):
             if num_sensors == 3:
-                st.info("🎯 **2D Localization Mode** - Using 3 sensors")
+                st.info("**2D Localization Mode** - Using 3 sensors")
                 estimated_location = perform_localization_2d(sensors, attenuation_n)
                 localization_mode = "2D"
             else:
-                st.info("🎯 **3D Localization Mode** - Using 4+ sensors")
+                st.info("**3D Localization Mode** - Using 4+ sensors")
                 estimated_location = perform_localization_3d(sensors, attenuation_n)
                 localization_mode = "3D"
         
         if estimated_location is None:
-            st.error("❌ Localization failed. Try adjusting parameters or sensor positions.")
+            st.error("Localization failed. Try adjusting parameters or sensor positions.")
             return
         
         # Display results
-        st.subheader("📈 Localization Results")
+        st.subheader("Localization Results")
         
         # Results metrics
         col1, col2, col3 = st.columns(3)
@@ -539,7 +549,7 @@ def main():
                 st.metric("Error from True Source", f"{error:.2f}")
         
         # Create visualization
-        st.subheader("Visualization")
+        st.subheader( "Visualization")
         
         actual_source = [actual_x, actual_y, actual_z] if show_actual else None
         
@@ -554,7 +564,7 @@ def main():
             st.plotly_chart(fig, use_container_width=True)
             
             # Display identified cylinder
-            st.subheader("🎯 Identified Vibration Cylinder")
+            st.subheader("Identified Vibration Cylinder")
             identified_shape = shapes[closest_shape_idx]
             st.write(f"**Label:** {identified_shape.label}")
             st.write(f"**Center:** ({identified_shape.center[0]:.1f}, {identified_shape.center[1]:.1f}, {identified_shape.center[2]:.1f})")
@@ -563,7 +573,7 @@ def main():
             st.write(f"**Distance to Estimated Location:** {min_distance:.2f}")
         
         # Additional analysis
-        with st.expander("🔬 Detailed Analysis"):
+        with st.expander("Detailed Analysis"):
             st.subheader("Intensity Ratios")
             if num_sensors >= 2:
                 k21 = (sensors[0]['intensity'] / sensors[1]['intensity']) ** (1/attenuation_n)
@@ -583,4 +593,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
