@@ -530,8 +530,9 @@ def vibration_analysis():
 
 # Sign-in function
 def sign_in(username, password):
+    """Validate user credentials"""
     # For demonstration, using hardcoded credentials
-    # In production, replace with secure authentication (e.g., database check or OAuth)
+    # In production, replace with secure authentication (e.g., database or OAuth)
     if username == "user" and password == "pass":
         return True
     return False
@@ -557,9 +558,9 @@ if __name__ == "__main__":
         st.title("ICE Fault Logger V1.0")
         st.header("Welcome to NEVERA's Advanced Vibration Localization System")
         st.markdown("""
-        The project is dedicated to internal combustion (IC) engine vibration signal analysis and error identification. 
+        The project is dedicated to internal combustion (IC) engine vibration signal analysis and error identification.
         Our team, NEVERA, has developed an advanced vibration localization system. Our mission is to enhance vehicle reliability and performance with cutting-edge technology.
-        We use a physical unit to collect acceleration data from vehicles, which is uploaded as CSV files containing acceleration and timestamp data 
+        We use a physical unit to collect acceleration data from vehicles, which is uploaded as CSV files containing acceleration and timestamp data
         for precise fault detection and analysis.
         """)
 
@@ -573,15 +574,18 @@ if __name__ == "__main__":
 
     elif page == "Login":
         st.title("Login to ICE Fault Logger")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if sign_in(username, password):
-                st.session_state.authenticated = True
-                st.success("Logged in successfully!")
-                st.rerun()
-            else:
-                st.error("Invalid username or password")
+        with st.form(key="login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            submit_button = st.form_submit_button("Login")
+            if submit_button:
+                if sign_in(username, password):
+                    st.session_state.authenticated = True
+                    st.success("Logged in successfully!")
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password")
+        st.markdown("Don't have an account? [Sign up](#)")  # Placeholder link for sign-up
 
     elif page == "Vibration Analysis":
         vibration_analysis()
@@ -590,4 +594,25 @@ if __name__ == "__main__":
         st.title("About Team NEVERA")
         st.header("Meet Our Team")
         st.markdown("""
-        NEVERA is a passionate team dedicated
+        NEVERA is a passionate team dedicated to advancing IC engine diagnostics through innovative vibration analysis solutions.
+        Our mission is to enhance vehicle reliability and performance with cutting-edge technology.
+        """)
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.image("https://images.unsplash.com/photo-1552058540-f2f8a19d0833?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", caption="John Doe")
+            st.write("**Name:** John Doe")
+            st.write("**Role:** Lead Engineer")
+            st.write("John leads the hardware integration and sensor placement strategies.")
+
+        with col2:
+            st.image("https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", caption="Jane Smith")
+            st.write("**Name:** Jane Smith")
+            st.write("**Role:** Data Scientist")
+            st.write("Jane develops the signal processing and localization algorithms.")
+
+        with col3:
+            st.image("https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", caption="Alex Johnson")
+            st.write("**Name:** Alex Johnson")
+            st.write("**Role:** Software Developer")
+            st.write("Alex builds and maintains the web application.")
