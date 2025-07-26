@@ -12,7 +12,7 @@ warnings.filterwarnings('ignore')
 
 # Page configuration
 st.set_page_config(
-    page_title="Nevera - Advanced Vibration Source Locator",
+    page_title="ICE Fault Logger V1.0",
     page_icon="📍",
     layout="wide"
 )
@@ -21,18 +21,17 @@ st.set_page_config(
 class GeometricShape:
     def __init__(self, shape_type: str, center: List[float], radius: float, 
                  color: List[float], label: str, height: float = None):
-        self.shape_type = shape_type  # 'circle' or 'cylinder'
+        self.shape_type = shape_type
         self.center = center
         self.radius = radius
         self.color = color
         self.label = label
-        self.height = height  # Only for cylinders
+        self.height = height
 
 # Helper functions
 def load_and_process_signal(uploaded_file, column_name):
     """Load and process sensor data from CSV"""
     try:
-        # Handle different file formats
         if uploaded_file.name.endswith('.txt'):
             try:
                 df = pd.read_csv(uploaded_file, sep=r'\s+', engine='python')
@@ -41,7 +40,6 @@ def load_and_process_signal(uploaded_file, column_name):
         else:
             df = pd.read_csv(uploaded_file)
         
-        # Case-insensitive column matching
         col_match = [col for col in df.columns if column_name.lower() in col.lower()]
         
         if not col_match:
@@ -50,7 +48,6 @@ def load_and_process_signal(uploaded_file, column_name):
         
         signal_data = df[col_match[0]].values
         
-        # Convert to numeric if needed
         if signal_data.dtype == object:
             try:
                 signal_data = pd.to_numeric(signal_data, errors='coerce')
@@ -58,7 +55,6 @@ def load_and_process_signal(uploaded_file, column_name):
                 st.error(f"Could not convert data to numeric in {uploaded_file.name}")
                 return None
         
-        # Remove NaNs
         signal_data = signal_data[~np.isnan(signal_data)]
         
         if len(signal_data) == 0:
@@ -107,7 +103,6 @@ def perform_localization_2d(sensors, attenuation_n):
     x2, y2 = loc2[0], loc2[1]
     x3, y3 = loc3[0], loc3[1]
     
-    # Matrix formulation for 2D localization
     A = 2 * np.array([
         [x2 - k21**2 * x1, y2 - k21**2 * y1],
         [x3 - k31**2 * x1, y3 - k31**2 * y1]
@@ -143,7 +138,6 @@ def perform_localization_3d(sensors, attenuation_n):
     x3, y3, z3 = loc3[0], loc3[1], loc3[2]
     x4, y4, z4 = loc4[0], loc4[1], loc4[2]
     
-    # Matrix formulation for 3D localization
     A = 2 * np.array([
         [x2 - k21**2 * x1, y2 - k21**2 * y1, z2 - k21**2 * z1],
         [x3 - k31**2 * x1, y3 - k31**2 * y1, z3 - k31**2 * z1],
@@ -169,15 +163,13 @@ def create_default_shapes(geometry_mode: str) -> List[GeometricShape]:
     """Create default geometric shapes for vibration source identification"""
     shapes = []
     
-    # Default centers and properties
     default_centers = [[10, 6.5, 0], [23.5, 5, 0], [19, 18.5, 0]]
     default_radius = 3.0
     default_height = 2.5
     color_map = [[1, 0.42, 0.42], [0.31, 0.80, 0.77], [0.27, 0.72, 0.82]]
     
-    # Create 3 default shapes
     for i in range(3):
-        if geometry_mode == "3D":  # Since we're adding to 3D
+        if geometry_mode == "3D":
             shape = GeometricShape(
                 shape_type="cylinder",
                 center=default_centers[i],
@@ -197,8 +189,6 @@ def find_closest_shape(estimated_location: np.ndarray, shapes: List[GeometricSha
     
     for i, shape in enumerate(shapes):
         center = np.array(shape.center)
-        
-        # Calculate Euclidean distance
         distance = np.linalg.norm(estimated_location - center)
         
         if distance < min_distance:
@@ -211,12 +201,10 @@ def create_2d_plot(sensors, estimated_location, actual_source=None):
     """Create 2D matplotlib plot"""
     fig, ax = plt.subplots(figsize=(12, 9))
     
-    # Plot sensors
     for i, sensor in enumerate(sensors):
         ax.plot(sensor['location'][0], sensor['location'][1], 'o', 
                 markersize=12, label=f"Sensor {i+1}")
     
-    # Plot estimated location
     if estimated_location is not None:
         ax.plot(estimated_location[0], estimated_location[1], 'r*', 
                 markersize=20, label='Estimated Source')
@@ -224,7 +212,6 @@ def create_2d_plot(sensors, estimated_location, actual_source=None):
                 f'Est: ({estimated_location[0]:.1f}, {estimated_location[1]:.1f})', 
                 fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
     
-    # Plot actual source if provided
     if actual_source:
         ax.plot(actual_source[0], actual_source[1], 'm*', 
                 markersize=20, label='Actual Source')
@@ -242,12 +229,10 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
     """Create enhanced 3D plot with vibration cylinders"""
     fig = go.Figure()
     
-    # Add cylinders with vibration source highlighting
     transparency = 0.3
     for i, shape in enumerate(shapes):
         is_vibration_source = (i == closest_shape_idx)
         
-        # Create cylinder surface
         theta = np.linspace(0, 2*np.pi, 50)
         z_cyl = np.linspace(-shape.height/2, shape.height/2, 20)
         
@@ -257,7 +242,6 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
         z_cyl_mesh = z_mesh + shape.center[2]
         
         if is_vibration_source:
-            # VIBRATION SOURCE - Enhanced styling
             fig.add_trace(go.Surface(
                 x=x_cyl, y=y_cyl, z=z_cyl_mesh,
                 colorscale=[[0, 'red'], [0.5, 'orange'], [1, 'red']],
@@ -267,7 +251,6 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                 showlegend=True
             ))
             
-            # Vibration source center
             fig.add_trace(go.Scatter3d(
                 x=[shape.center[0]], y=[shape.center[1]], z=[shape.center[2]],
                 mode='markers+text',
@@ -284,7 +267,6 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                 showlegend=False
             ))
         else:
-            # Regular cylinders
             rgb = f'rgb({int(shape.color[0]*255)},{int(shape.color[1]*255)},{int(shape.color[2]*255)})'
             fig.add_trace(go.Surface(
                 x=x_cyl, y=y_cyl, z=z_cyl_mesh,
@@ -295,7 +277,6 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                 showlegend=True
             ))
             
-            # Center point
             fig.add_trace(go.Scatter3d(
                 x=[shape.center[0]], y=[shape.center[1]], z=[shape.center[2]],
                 mode='markers+text',
@@ -310,7 +291,6 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                 showlegend=False
             ))
     
-    # Plot sensors
     sensor_colors = ['blue', 'red', 'green', 'orange', 'purple']
     for i, sensor in enumerate(sensors):
         color = sensor_colors[i % len(sensor_colors)]
@@ -325,20 +305,6 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
             name=f'Sensor {i+1}'
         ))
     
-    # Plot estimated location
-    #if estimated_location is not None:
-        #fig.add_trace(go.Scatter3d(
-            #x=[estimated_location[0]], 
-            #y=[estimated_location[1]], 
-            #z=[estimated_location[2]],
-            #mode='markers+text',
-            #marker=dict(size=15, color='red', symbol='diamond'),
-            #text=['EST'],
-            #textposition="top center",
-            #name='Estimated Source'
-        #))
-    
-    # Plot actual source if provided
     if actual_source and len(actual_source) >= 3:
         fig.add_trace(go.Scatter3d(
             x=[actual_source[0]], 
@@ -364,41 +330,29 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
     
     return fig
 
-# Main application
-def main():
-    # Title and description
-    st.title(" Nevera - Advanced Vibration Source Locator")
+# Vibration Analysis function
+def vibration_analysis():
+    st.title("NEVERA - ICE Fault Logger V1.0 - Vibration Analysis")
     
     st.markdown("""
-    ## Welcome to Advanced Nevera!
-    This application performs vibration source localization using multiple sensors with automatic dimension detection:
-    - **3 Sensors**: 2D localization with matplotlib visualization
-    - **4+ Sensors**: 3D localization with interactive Plotly visualization including vibration cylinders
+    ## Advanced Vibration Source Localization
+    Upload acceleration data from sensors to localize vibration sources and identify potential faults in the IC engine.
     """)
     
     with st.expander("How it works:"):
         st.markdown("""
-        1. **Upload sensor data files** (in CSV format)
-        2. **Configure sensor locations** in 2D or 3D coordinates
-        3. **Set processing parameters**: sampling rate, filter range, attenuation model
-        4. **Automatic analysis**: The app detects the number of sensors and chooses the appropriate method
-        5. **Visualize results**: 2D plots for 3 sensors, 3D interactive plots with cylinders for 4+ sensors
-        
-        **Algorithms:**
-        - Butterworth bandpass filtering for signal preprocessing
-        - RMS amplitude calculation for intensity measurement
-        - Matrix-based trilateration for multi-dimensional localization
-        - Automatic dimension detection based on sensor count
-        - Cylinder visualization for 3D mode
+        1. **Upload sensor data files** (in CSV format with acceleration and timestamp).
+        2. **Configure sensor locations** in 2D or 3D coordinates.
+        3. **Set processing parameters**: sampling rate, filter range, attenuation model.
+        4. **Automatic analysis**: Detects number of sensors and performs localization.
+        5. **Visualize results**: Identifies closest cylinder/shape as potential fault location.
         """)
     
     st.divider()
     
-    # Sidebar configuration
     with st.sidebar:
         st.header("Configuration")
         
-        # Signal processing parameters
         st.subheader("Signal Processing")
         column_name = st.text_input("Data Column Name", "accel_y_g")
         sampling_freq = st.number_input("Sampling Frequency (Hz)", min_value=1.0, value=333.33)
@@ -407,17 +361,14 @@ def main():
         filter_order = st.number_input("Filter Order", min_value=1, max_value=10, value=4)
         attenuation_n = st.number_input("Attenuation Exponent", min_value=0.1, value=2.0)
         
-        # Actual source location
         st.subheader("Known Source (Optional)")
         actual_x = st.number_input("Actual Source X", value=23.5)
         actual_y = st.number_input("Actual Source Y", value=5.0)
         actual_z = st.number_input("Actual Source Z", value=1.0)
         show_actual = st.checkbox("Show actual source", value=True)
     
-    # File upload section
     st.header("Upload Sensor Data")
     
-    # Create columns for sensor uploads
     col1, col2 = st.columns(2)
     col3, col4 = st.columns(2)
     
@@ -449,9 +400,7 @@ def main():
         s4_y = st.number_input("S4 Y", value=13.5, key="s4y")
         s4_z = st.number_input("S4 Z", value=-10.0, key="s4z")
     
-    # Process button
-    if st.button("Perform Advanced Localization", use_container_width=True, type="primary"):
-        # Check minimum requirements
+    if st.button("Perform Localization", use_container_width=True, type="primary"):
         uploaded_files = [sensor1_file, sensor2_file, sensor3_file, sensor4_file]
         sensor_locations = [
             [s1_x, s1_y, s1_z],
@@ -460,13 +409,11 @@ def main():
             [s4_x, s4_y, s4_z]
         ]
         
-        # Process uploaded sensors
         sensors = []
         for i, (file, location) in enumerate(zip(uploaded_files, sensor_locations)):
             if file is not None:
                 signal_data = load_and_process_signal(file, column_name)
                 if signal_data is not None:
-                    # Apply filtering
                     filtered_signal = apply_filter(signal_data, low_cutoff, high_cutoff, sampling_freq, filter_order)
                     intensity = calculate_rms(filtered_signal)
                     
@@ -484,10 +431,8 @@ def main():
             st.error("❌ At least 3 sensors are required for localization!")
             return
         
-        # Display sensor information
         st.success(f"✅ {num_sensors} sensors detected!")
         
-        # Create sensor summary table
         sensor_data = []
         for sensor in sensors:
             sensor_data.append({
@@ -503,7 +448,6 @@ def main():
         st.subheader("Sensor Summary")
         st.dataframe(pd.DataFrame(sensor_data), use_container_width=True)
         
-        # Perform localization based on sensor count
         with st.spinner("Performing localization..."):
             if num_sensors == 3:
                 st.info("**2D Localization Mode** - Using 3 sensors")
@@ -518,10 +462,8 @@ def main():
             st.error("Localization failed. Try adjusting parameters or sensor positions.")
             return
         
-        # Display results
         st.subheader("Localization Results")
         
-        # Results metrics
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -538,7 +480,6 @@ def main():
             else:
                 st.metric("Estimated Z", "N/A (2D mode)")
             
-            # Calculate error if actual source is provided
             if show_actual:
                 if localization_mode == "2D":
                     actual = [actual_x, actual_y]
@@ -548,8 +489,7 @@ def main():
                     error = np.linalg.norm(estimated_location - np.array(actual))
                 st.metric("Error from True Source", f"{error:.2f}")
         
-        # Create visualization
-        st.subheader( "Visualization")
+        st.subheader("Visualization")
         
         actual_source = [actual_x, actual_y, actual_z] if show_actual else None
         
@@ -557,13 +497,11 @@ def main():
             fig = create_2d_plot(sensors, estimated_location, actual_source)
             st.pyplot(fig)
         else:
-            # Add cylinders for 3D
             shapes = create_default_shapes("3D")
             closest_shape_idx, min_distance = find_closest_shape(estimated_location, shapes)
             fig = create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shape_idx, actual_source)
             st.plotly_chart(fig, use_container_width=True)
             
-            # Display identified cylinder
             st.subheader("Identified Vibration Cylinder")
             identified_shape = shapes[closest_shape_idx]
             st.write(f"**Label:** {identified_shape.label}")
@@ -572,7 +510,6 @@ def main():
             st.write(f"**Height:** {identified_shape.height:.1f}")
             st.write(f"**Distance to Estimated Location:** {min_distance:.2f}")
         
-        # Additional analysis
         with st.expander("Detailed Analysis"):
             st.subheader("Intensity Ratios")
             if num_sensors >= 2:
@@ -591,5 +528,79 @@ def main():
             st.write(f"**Sampling Frequency:** {sampling_freq} Hz")
             st.write(f"**Attenuation Exponent:** {attenuation_n}")
 
+# Main app logic
 if __name__ == "__main__":
-    main()
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    st.sidebar.title("Navigation")
+    options = ["Home", "Login"] if not st.session_state.authenticated else ["Home", "Vibration Analysis", "About Us", "Logout"]
+    page = st.sidebar.radio("Go to", options)
+
+    if page == "Logout":
+        st.session_state.authenticated = False
+        st.experimental_rerun()
+
+    if not st.session_state.authenticated and page not in ["Home", "Login"]:
+        st.error("Please login to access this page.")
+        st.stop()
+
+    if page == "Home":
+        st.title("ICE Fault Logger V1.0")
+        st.header("Welcome to NEVERA's Advanced Vibration Localization System")
+        st.markdown("""
+        The project is dedicated to internal combustion (IC) engine vibration signal analysis and error identification. 
+        Our team, NEVERA, has developed an advanced vibration localization system. We use a physical unit to collect 
+        acceleration data from vehicles, which is uploaded as CSV files containing acceleration and timestamp data 
+        for precise fault detection and analysis.
+        """)
+
+        st.image("images/engine_vibration.jpg", caption="IC Engine Vibration Analysis")
+        st.image("images/data_collection.jpg", caption="Vehicle Acceleration Data Collection")
+
+        if not st.session_state.authenticated:
+            if st.button("Go to Login"):
+                st.session_state.page = "Login"
+                st.experimental_rerun()
+
+    elif page == "Login":
+        st.title("Login to ICE Fault Logger")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            if username == "user" and password == "pass":
+                st.session_state.authenticated = True
+                st.success("Logged in successfully!")
+                st.experimental_rerun()
+            else:
+                st.error("Invalid username or password")
+
+    elif page == "Vibration Analysis":
+        vibration_analysis()
+
+    elif page == "About Us":
+        st.title("About Team NEVERA")
+        st.header("Meet Our Team")
+        st.markdown("""
+        NEVERA is a passionate team dedicated to advancing IC engine diagnostics through innovative vibration analysis solutions. 
+        Our mission is to enhance vehicle reliability and performance with cutting-edge technology.
+        """)
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.image("images/team_member1.jpg", caption="John Doe")
+            st.write("**Name:** John Doe")
+            st.write("**Role:** Lead Engineer")
+            st.write("John leads the hardware integration and sensor placement strategies.")
+
+        with col2:
+            st.image("images/team_member2.jpg", caption="Jane Smith")
+            st.write("**Name:** Jane Smith")
+            st.write("**Role:** Data Scientist")
+            st.write("Jane develops the signal processing and localization algorithms.")
+
+        with col3:
+            st.image("images/team_member3.jpg", caption="Alex Johnson")
+            st.write("**Name:** Alex Johnson")
+            st.write("**Role:** Software Developer")
+            st.write("Alex builds and maintains the web application.")
