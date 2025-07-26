@@ -550,13 +550,13 @@ if __name__ == "__main__":
         st.header("Welcome to NEVERA's Advanced Vibration Localization System")
         st.markdown("""
         The project is dedicated to internal combustion (IC) engine vibration signal analysis and error identification. 
-        Our team, NEVERA, has developed an advanced vibration localization system. We use a physical unit to collect 
-        acceleration data from vehicles, which is uploaded as CSV files containing acceleration and timestamp data 
+        Our team, NEVERA, has developed an advanced vibration localization system. Our mission is to enhance vehicle reliability and performance with cutting-edge technology.
+        We use a physical unit to collect acceleration data from vehicles, which is uploaded as CSV files containing acceleration and timestamp data 
         for precise fault detection and analysis.
         """)
 
-        st.image("images/engine_vibration.jpg", caption="IC Engine Vibration Analysis")
-        st.image("images/data_collection.jpg", caption="Vehicle Acceleration Data Collection")
+        st.image("https://images.unsplash.com/photo-1581094377424-8fc91a4809e8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80", caption="IC Engine Vibration Analysis")
+        st.image("https://images.unsplash.com/photo-1621489426083-6e0e99f5d35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80", caption="Vehicle Acceleration Data Collection")
 
         if not st.session_state.authenticated:
             if st.button("Go to Login"):
@@ -588,19 +588,19 @@ if __name__ == "__main__":
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.image("images/team_member1.jpg", caption="John Doe")
+            st.image("https://images.unsplash.com/photo-1552058540-f2f8a19d0833?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", caption="John Doe")
             st.write("**Name:** John Doe")
             st.write("**Role:** Lead Engineer")
             st.write("John leads the hardware integration and sensor placement strategies.")
 
         with col2:
-            st.image("images/team_member2.jpg", caption="Jane Smith")
+            st.image("https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", caption="Jane Smith")
             st.write("**Name:** Jane Smith")
             st.write("**Role:** Data Scientist")
             st.write("Jane develops the signal processing and localization algorithms.")
 
         with col3:
-            st.image("images/team_member3.jpg", caption="Alex Johnson")
+            st.image("https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80", caption="Alex Johnson")
             st.write("**Name:** Alex Johnson")
             st.write("**Role:** Software Developer")
             st.write("Alex builds and maintains the web application.")
