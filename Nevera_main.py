@@ -165,33 +165,39 @@ def perform_localization_3d(sensors, attenuation_n):
     
     return None
 
-def create_default_shapes(geometry_mode: str) -> List[GeometricShape]:
-    """Create default geometric shapes for vibration source identification"""
+def create_user_defined_shapes(user_shapes_data: List[dict]) -> List[GeometricShape]:
+    """Create geometric shapes from user input"""
     shapes = []
+    color_palette = [
+        [1, 0.42, 0.42],    # Light red
+        [0.31, 0.80, 0.77], # Teal
+        [0.27, 0.72, 0.82], # Light blue
+        [0.85, 0.65, 0.13], # Gold
+        [0.56, 0.93, 0.56], # Light green
+        [0.93, 0.51, 0.93], # Magenta
+        [1.0, 0.65, 0.0],   # Orange
+        [0.5, 0.0, 0.5]     # Purple
+    ]
     
-    # Default centers and properties
-    default_centers = [[10, 6.5, 0], [23.5, 5, 0], [19, 18.5, 0]]
-    default_radius = 3.0
-    default_height = 2.5
-    color_map = [[1, 0.42, 0.42], [0.31, 0.80, 0.77], [0.27, 0.72, 0.82]]
-    
-    # Create 3 default shapes
-    for i in range(3):
-        if geometry_mode == "3D":  # Since we're adding to 3D
-            shape = GeometricShape(
-                shape_type="cylinder",
-                center=default_centers[i],
-                radius=default_radius,
-                color=color_map[i],
-                label=f"Cyl{i+1}",
-                height=default_height
-            )
+    for i, shape_data in enumerate(user_shapes_data):
+        color = color_palette[i % len(color_palette)]
+        shape = GeometricShape(
+            shape_type="cylinder",
+            center=shape_data['center'],
+            radius=shape_data['radius'],
+            color=color,
+            label=shape_data['label'],
+            height=shape_data['height']
+        )
         shapes.append(shape)
     
     return shapes
 
 def find_closest_shape(estimated_location: np.ndarray, shapes: List[GeometricShape]) -> Tuple[int, float]:
     """Find the closest geometric shape to estimated location"""
+    if not shapes:
+        return -1, float('inf')
+    
     min_distance = float('inf')
     closest_idx = 0
     
@@ -245,7 +251,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
     # Add cylinders with vibration source highlighting
     transparency = 0.3
     for i, shape in enumerate(shapes):
-        is_vibration_source = (i == closest_shape_idx)
+        is_vibration_source = (i == closest_shape_idx and closest_shape_idx >= 0)
         
         # Create cylinder surface
         theta = np.linspace(0, 2*np.pi, 50)
@@ -262,7 +268,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                 x=x_cyl, y=y_cyl, z=z_cyl_mesh,
                 colorscale=[[0, 'red'], [0.5, 'orange'], [1, 'red']],
                 opacity=0.8,
-                name=f' VIBRATION SOURCE: {shape.label}',
+                name=f'🔥 VIBRATION SOURCE: {shape.label}',
                 showscale=False,
                 showlegend=True
             ))
@@ -277,7 +283,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
                     symbol='diamond',
                     line=dict(color='white', width=4)
                 ),
-                text=[f' VIBRATION<br>SOURCE<br>{shape.label}'],
+                text=[f'🔥 VIBRATION<br>SOURCE<br>{shape.label}'],
                 textposition="top center",
                 textfont=dict(size=12, color='red', family='Arial Black'),
                 name='Vibration Source Center',
@@ -326,17 +332,17 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
         ))
     
     # Plot estimated location
-    #if estimated_location is not None:
-        #fig.add_trace(go.Scatter3d(
-            #x=[estimated_location[0]], 
-            #y=[estimated_location[1]], 
-            #z=[estimated_location[2]],
-            #mode='markers+text',
-            #marker=dict(size=15, color='red', symbol='diamond'),
-            #text=['EST'],
-            #textposition="top center",
-            #name='Estimated Source'
-        #))
+    if estimated_location is not None:
+        fig.add_trace(go.Scatter3d(
+            x=[estimated_location[0]], 
+            y=[estimated_location[1]], 
+            z=[estimated_location[2]],
+            mode='markers+text',
+            marker=dict(size=15, color='yellow', symbol='star', line=dict(color='black', width=2)),
+            text=['⭐ EST'],
+            textposition="top center",
+            name='Estimated Source'
+        ))
     
     # Plot actual source if provided
     if actual_source and len(actual_source) >= 3:
@@ -346,7 +352,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
             z=[actual_source[2]],
             mode='markers+text',
             marker=dict(size=15, color='magenta', symbol='cross', line=dict(color='black', width=2)),
-            text=['TRUE'],
+            text=['✓ TRUE'],
             textposition="top center",
             name='Actual Source'
         ))
@@ -367,7 +373,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
 # Main application
 def main():
     # Title and description
-    st.title(" Nevera - Advanced Vibration Source Locator")
+    st.title("🎯 Nevera - Advanced Vibration Source Locator")
     
     st.markdown("""
     ## Welcome to Advanced Nevera!
@@ -380,42 +386,75 @@ def main():
         st.markdown("""
         1. **Upload sensor data files** (in CSV format)
         2. **Configure sensor locations** in 2D or 3D coordinates
-        3. **Set processing parameters**: sampling rate, filter range, attenuation model
-        4. **Automatic analysis**: The app detects the number of sensors and chooses the appropriate method
-        5. **Visualize results**: 2D plots for 3 sensors, 3D interactive plots with cylinders for 4+ sensors
+        3. **Define geometric shapes** (cylinders) for vibration source identification
+        4. **Set processing parameters**: sampling rate, filter range, attenuation model
+        5. **Automatic analysis**: The app detects the number of sensors and chooses the appropriate method
+        6. **Visualize results**: 2D plots for 3 sensors, 3D interactive plots with cylinders for 4+ sensors
         
         **Algorithms:**
         - Butterworth bandpass filtering for signal preprocessing
         - RMS amplitude calculation for intensity measurement
         - Matrix-based trilateration for multi-dimensional localization
         - Automatic dimension detection based on sensor count
-        - Cylinder visualization for 3D mode
+        - Dynamic cylinder visualization for 3D mode
         """)
     
     st.divider()
     
     # Sidebar configuration
     with st.sidebar:
-        st.header("Configuration")
+        st.header("⚙️ Configuration")
         
         # Signal processing parameters
         st.subheader("Signal Processing")
-        column_name = st.text_input("Data Column Name", "accel_y_g")
-        sampling_freq = st.number_input("Sampling Frequency (Hz)", min_value=1.0, value=333.33)
-        low_cutoff = st.number_input("Low Cutoff (Hz)", min_value=0.1, value=10.0)
-        high_cutoff = st.number_input("High Cutoff (Hz)", min_value=1.0, value=50.0)
-        filter_order = st.number_input("Filter Order", min_value=1, max_value=10, value=4)
-        attenuation_n = st.number_input("Attenuation Exponent", min_value=0.1, value=2.0)
+        column_name = st.text_input("Data Column Name", "")
+        sampling_freq = st.number_input("Sampling Frequency (Hz)", min_value=1.0, value=None)
+        low_cutoff = st.number_input("Low Cutoff (Hz)", min_value=0.1, value=None)
+        high_cutoff = st.number_input("High Cutoff (Hz)", min_value=1.0, value=None)
+        filter_order = st.number_input("Filter Order", min_value=1, max_value=10, value=None)
+        attenuation_n = st.number_input("Attenuation Exponent", min_value=0.1, value=None)
+        
+        # Geometric shapes configuration
+        st.divider()
+        st.subheader("🔺 Geometric Shapes")
+        num_shapes = st.number_input("Number of Cylinders", min_value=0, max_value=10, value=0)
         
         # Actual source location
-        st.subheader("Known Source (Optional)")
-        actual_x = st.number_input("Actual Source X", value=23.5)
-        actual_y = st.number_input("Actual Source Y", value=5.0)
-        actual_z = st.number_input("Actual Source Z", value=1.0)
-        show_actual = st.checkbox("Show actual source", value=True)
+        st.divider()
+        st.subheader("📍 Known Source (Optional)")
+        actual_x = st.number_input("Actual Source X", value=None)
+        actual_y = st.number_input("Actual Source Y", value=None)
+        actual_z = st.number_input("Actual Source Z", value=None)
+        show_actual = st.checkbox("Show actual source", value=False)
+    
+    # Geometric shapes input
+    user_shapes_data = []
+    if num_shapes > 0:
+        st.header("🔺 Define Geometric Shapes")
+        st.markdown("Configure the cylinders for vibration source identification:")
+        
+        cols = st.columns(min(3, num_shapes))
+        for i in range(num_shapes):
+            col_idx = i % 3
+            with cols[col_idx]:
+                st.subheader(f"Cylinder {i+1}")
+                label = st.text_input(f"Label", f"Cyl{i+1}", key=f"shape_label_{i}")
+                center_x = st.number_input(f"Center X", value=None, key=f"shape_cx_{i}")
+                center_y = st.number_input(f"Center Y", value=None, key=f"shape_cy_{i}")
+                center_z = st.number_input(f"Center Z", value=None, key=f"shape_cz_{i}")
+                radius = st.number_input(f"Radius", min_value=0.1, value=None, key=f"shape_r_{i}")
+                height = st.number_input(f"Height", min_value=0.1, value=None, key=f"shape_h_{i}")
+                
+                if all(v is not None for v in [center_x, center_y, center_z, radius, height]):
+                    user_shapes_data.append({
+                        'label': label,
+                        'center': [center_x, center_y, center_z],
+                        'radius': radius,
+                        'height': height
+                    })
     
     # File upload section
-    st.header("Upload Sensor Data")
+    st.header("📁 Upload Sensor Data")
     
     # Create columns for sensor uploads
     col1, col2 = st.columns(2)
@@ -424,34 +463,50 @@ def main():
     with col1:
         st.subheader("Sensor 1")
         sensor1_file = st.file_uploader("Upload Sensor 1", type=["csv", "txt"], key="s1")
-        s1_x = st.number_input("S1 X", value=0.0, key="s1x")
-        s1_y = st.number_input("S1 Y", value=0.0, key="s1y")
-        s1_z = st.number_input("S1 Z", value=0.0, key="s1z")
+        s1_x = st.number_input("S1 X", value=None, key="s1x")
+        s1_y = st.number_input("S1 Y", value=None, key="s1y")
+        s1_z = st.number_input("S1 Z", value=None, key="s1z")
     
     with col2:
         st.subheader("Sensor 2")
         sensor2_file = st.file_uploader("Upload Sensor 2", type=["csv", "txt"], key="s2")
-        s2_x = st.number_input("S2 X", value=20.0, key="s2x")
-        s2_y = st.number_input("S2 Y", value=24.5, key="s2y")
-        s2_z = st.number_input("S2 Z", value=0.0, key="s2z")
+        s2_x = st.number_input("S2 X", value=None, key="s2x")
+        s2_y = st.number_input("S2 Y", value=None, key="s2y")
+        s2_z = st.number_input("S2 Z", value=None, key="s2z")
     
     with col3:
         st.subheader("Sensor 3")
         sensor3_file = st.file_uploader("Upload Sensor 3", type=["csv", "txt"], key="s3")
-        s3_x = st.number_input("S3 X", value=38.0, key="s3x")
-        s3_y = st.number_input("S3 Y", value=0.0, key="s3y")
-        s3_z = st.number_input("S3 Z", value=0.0, key="s3z")
+        s3_x = st.number_input("S3 X", value=None, key="s3x")
+        s3_y = st.number_input("S3 Y", value=None, key="s3y")
+        s3_z = st.number_input("S3 Z", value=None, key="s3z")
     
     with col4:
         st.subheader("Sensor 4 (Optional)")
         sensor4_file = st.file_uploader("Upload Sensor 4", type=["csv", "txt"], key="s4")
-        s4_x = st.number_input("S4 X", value=20.0, key="s4x")
-        s4_y = st.number_input("S4 Y", value=13.5, key="s4y")
-        s4_z = st.number_input("S4 Z", value=-10.0, key="s4z")
+        s4_x = st.number_input("S4 X", value=None, key="s4x")
+        s4_y = st.number_input("S4 Y", value=None, key="s4y")
+        s4_z = st.number_input("S4 Z", value=None, key="s4z")
     
-    # Process button
-    if st.button("Perform Advanced Localization", use_container_width=True, type="primary"):
-        # Check minimum requirements
+    # Validation before processing
+    def validate_inputs():
+        errors = []
+        
+        # Check required parameters
+        if not column_name:
+            errors.append("Data Column Name is required")
+        if sampling_freq is None:
+            errors.append("Sampling Frequency is required")
+        if low_cutoff is None:
+            errors.append("Low Cutoff frequency is required")
+        if high_cutoff is None:
+            errors.append("High Cutoff frequency is required")
+        if filter_order is None:
+            errors.append("Filter Order is required")
+        if attenuation_n is None:
+            errors.append("Attenuation Exponent is required")
+        
+        # Check minimum sensor requirements
         uploaded_files = [sensor1_file, sensor2_file, sensor3_file, sensor4_file]
         sensor_locations = [
             [s1_x, s1_y, s1_z],
@@ -460,10 +515,41 @@ def main():
             [s4_x, s4_y, s4_z]
         ]
         
-        # Process uploaded sensors
-        sensors = []
+        valid_sensors = 0
         for i, (file, location) in enumerate(zip(uploaded_files, sensor_locations)):
             if file is not None:
+                if any(coord is None for coord in location):
+                    errors.append(f"Sensor {i+1} coordinates are incomplete")
+                else:
+                    valid_sensors += 1
+        
+        if valid_sensors < 3:
+            errors.append("At least 3 sensors with complete data and coordinates are required")
+        
+        return errors
+    
+    # Process button
+    if st.button("🚀 Perform Advanced Localization", use_container_width=True, type="primary"):
+        # Validate inputs
+        validation_errors = validate_inputs()
+        if validation_errors:
+            st.error("❌ Please fix the following issues:")
+            for error in validation_errors:
+                st.write(f"• {error}")
+            return
+        
+        # Process uploaded sensors
+        uploaded_files = [sensor1_file, sensor2_file, sensor3_file, sensor4_file]
+        sensor_locations = [
+            [s1_x, s1_y, s1_z],
+            [s2_x, s2_y, s2_z],
+            [s3_x, s3_y, s3_z],
+            [s4_x, s4_y, s4_z]
+        ]
+        
+        sensors = []
+        for i, (file, location) in enumerate(zip(uploaded_files, sensor_locations)):
+            if file is not None and all(coord is not None for coord in location):
                 signal_data = load_and_process_signal(file, column_name)
                 if signal_data is not None:
                     # Apply filtering
@@ -479,13 +565,7 @@ def main():
                     })
         
         num_sensors = len(sensors)
-        
-        if num_sensors < 3:
-            st.error("❌ At least 3 sensors are required for localization!")
-            return
-        
-        # Display sensor information
-        st.success(f"✅ {num_sensors} sensors detected!")
+        st.success(f"✅ {num_sensors} sensors detected and processed!")
         
         # Create sensor summary table
         sensor_data = []
@@ -500,11 +580,11 @@ def main():
                 'Samples': len(sensor['signal'])
             })
         
-        st.subheader("Sensor Summary")
+        st.subheader("📊 Sensor Summary")
         st.dataframe(pd.DataFrame(sensor_data), use_container_width=True)
         
         # Perform localization based on sensor count
-        with st.spinner("Performing localization..."):
+        with st.spinner("🔍 Performing localization..."):
             if num_sensors == 3:
                 st.info("**2D Localization Mode** - Using 3 sensors")
                 estimated_location = perform_localization_2d(sensors, attenuation_n)
@@ -515,11 +595,11 @@ def main():
                 localization_mode = "3D"
         
         if estimated_location is None:
-            st.error("Localization failed. Try adjusting parameters or sensor positions.")
+            st.error("❌ Localization failed. Try adjusting parameters or sensor positions.")
             return
         
         # Display results
-        st.subheader("Localization Results")
+        st.subheader("🎯 Localization Results")
         
         # Results metrics
         col1, col2, col3 = st.columns(3)
@@ -539,7 +619,7 @@ def main():
                 st.metric("Estimated Z", "N/A (2D mode)")
             
             # Calculate error if actual source is provided
-            if show_actual:
+            if show_actual and all(v is not None for v in [actual_x, actual_y, actual_z]):
                 if localization_mode == "2D":
                     actual = [actual_x, actual_y]
                     error = np.linalg.norm(estimated_location - np.array(actual))
@@ -549,31 +629,97 @@ def main():
                 st.metric("Error from True Source", f"{error:.2f}")
         
         # Create visualization
-        st.subheader( "Visualization")
+        st.subheader("📈 Visualization")
         
-        actual_source = [actual_x, actual_y, actual_z] if show_actual else None
+        actual_source = [actual_x, actual_y, actual_z] if (show_actual and all(v is not None for v in [actual_x, actual_y, actual_z])) else None
         
         if localization_mode == "2D":
             fig = create_2d_plot(sensors, estimated_location, actual_source)
             st.pyplot(fig)
         else:
-            # Add cylinders for 3D
-            shapes = create_default_shapes("3D")
-            closest_shape_idx, min_distance = find_closest_shape(estimated_location, shapes)
-            fig = create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shape_idx, actual_source)
-            st.plotly_chart(fig, use_container_width=True)
+            # Create shapes from user input
+            shapes = create_user_defined_shapes(user_shapes_data)
             
-            # Display identified cylinder
-            st.subheader("Identified Vibration Cylinder")
-            identified_shape = shapes[closest_shape_idx]
-            st.write(f"**Label:** {identified_shape.label}")
-            st.write(f"**Center:** ({identified_shape.center[0]:.1f}, {identified_shape.center[1]:.1f}, {identified_shape.center[2]:.1f})")
-            st.write(f"**Radius:** {identified_shape.radius:.1f}")
-            st.write(f"**Height:** {identified_shape.height:.1f}")
-            st.write(f"**Distance to Estimated Location:** {min_distance:.2f}")
+            if shapes:
+                closest_shape_idx, min_distance = find_closest_shape(estimated_location, shapes)
+                fig = create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shape_idx, actual_source)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Display identified cylinder
+                st.subheader("🔥 Identified Vibration Cylinder")
+                if closest_shape_idx >= 0:
+                    identified_shape = shapes[closest_shape_idx]
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Label:** {identified_shape.label}")
+                        st.write(f"**Center:** ({identified_shape.center[0]:.1f}, {identified_shape.center[1]:.1f}, {identified_shape.center[2]:.1f})")
+                    with col2:
+                        st.write(f"**Radius:** {identified_shape.radius:.1f}")
+                        st.write(f"**Height:** {identified_shape.height:.1f}")
+                        st.write(f"**Distance to Estimated Location:** {min_distance:.2f}")
+                else:
+                    st.info("No cylinders defined for comparison.")
+            else:
+                # Show 3D plot without shapes
+                fig = go.Figure()
+                
+                # Plot sensors
+                sensor_colors = ['blue', 'red', 'green', 'orange', 'purple']
+                for i, sensor in enumerate(sensors):
+                    color = sensor_colors[i % len(sensor_colors)]
+                    fig.add_trace(go.Scatter3d(
+                        x=[sensor['location'][0]], 
+                        y=[sensor['location'][1]], 
+                        z=[sensor['location'][2]],
+                        mode='markers+text',
+                        marker=dict(size=10, color=color),
+                        text=[f'S{i+1}'],
+                        textposition="top center",
+                        name=f'Sensor {i+1}'
+                    ))
+                
+                # Plot estimated location
+                if estimated_location is not None:
+                    fig.add_trace(go.Scatter3d(
+                        x=[estimated_location[0]], 
+                        y=[estimated_location[1]], 
+                        z=[estimated_location[2]],
+                        mode='markers+text',
+                        marker=dict(size=15, color='yellow', symbol='star', line=dict(color='black', width=2)),
+                        text=['⭐ EST'],
+                        textposition="top center",
+                        name='Estimated Source'
+                    ))
+                
+                # Plot actual source if provided
+                if actual_source and len(actual_source) >= 3:
+                    fig.add_trace(go.Scatter3d(
+                        x=[actual_source[0]], 
+                        y=[actual_source[1]], 
+                        z=[actual_source[2]],
+                        mode='markers+text',
+                        marker=dict(size=15, color='magenta', symbol='cross', line=dict(color='black', width=2)),
+                        text=['✓ TRUE'],
+                        textposition="top center",
+                        name='Actual Source'
+                    ))
+                
+                fig.update_layout(
+                    title="3D Vibration Source Localization",
+                    scene=dict(
+                        xaxis_title="X Position",
+                        yaxis_title="Y Position",
+                        zaxis_title="Z Position"
+                    ),
+                    width=1000,
+                    height=700
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                st.info("💡 Add geometric shapes above to identify potential vibration sources.")
         
         # Additional analysis
-        with st.expander("Detailed Analysis"):
+        with st.expander("🔍 Detailed Analysis"):
             st.subheader("Intensity Ratios")
             if num_sensors >= 2:
                 k21 = (sensors[0]['intensity'] / sensors[1]['intensity']) ** (1/attenuation_n)
@@ -590,6 +736,13 @@ def main():
             st.write(f"**Filter Order:** {filter_order}")
             st.write(f"**Sampling Frequency:** {sampling_freq} Hz")
             st.write(f"**Attenuation Exponent:** {attenuation_n}")
+            
+            st.subheader("Shape Configuration")
+            if user_shapes_data:
+                for i, shape_data in enumerate(user_shapes_data):
+                    st.write(f"**{shape_data['label']}:** Center=({shape_data['center'][0]}, {shape_data['center'][1]}, {shape_data['center'][2]}), R={shape_data['radius']}, H={shape_data['height']}")
+            else:
+                st.write("No geometric shapes defined.")
 
 if __name__ == "__main__":
     main()
