@@ -338,7 +338,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
             y=[estimated_location[1]], 
             z=[estimated_location[2]],
             mode='markers+text',
-            marker=dict(size=15, color='yellow', symbol='star', line=dict(color='black', width=2)),
+            marker=dict(size=15, color='yellow', symbol='diamond', line=dict(color='black', width=2)),
             text=['⭐ EST'],
             textposition="top center",
             name='Estimated Source'
@@ -685,7 +685,7 @@ def main():
                         y=[estimated_location[1]], 
                         z=[estimated_location[2]],
                         mode='markers+text',
-                        marker=dict(size=15, color='yellow', symbol='star', line=dict(color='black', width=2)),
+                        marker=dict(size=15, color='yellow', symbol='diamond', line=dict(color='black', width=2)),
                         text=['⭐ EST'],
                         textposition="top center",
                         name='Estimated Source'
