@@ -10,6 +10,13 @@ from typing import List, Tuple
 
 warnings.filterwarnings('ignore')
 
+# Page configuration
+st.set_page_config(
+    page_title="Nevera - Advanced Vibration Source Locator",
+    page_icon="📍",
+    layout="wide"
+)
+
 # Enhanced Classes for Geometric Shapes
 class GeometricShape:
     def __init__(self, shape_type: str, center: List[float], radius: float, 
@@ -320,16 +327,16 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
     
     # Plot estimated location
     #if estimated_location is not None:
-    #    fig.add_trace(go.Scatter3d(
-    #        x=[estimated_location[0]], 
-    #        y=[estimated_location[1]], 
-    #        z=[estimated_location[2]],
-    #        mode='markers+text',
-    #        marker=dict(size=15, color='red', symbol='diamond'),
-    #        text=['EST'],
-    #        textposition="top center",
-    #        name='Estimated Source'
-    #    ))
+        #fig.add_trace(go.Scatter3d(
+            #x=[estimated_location[0]], 
+            #y=[estimated_location[1]], 
+            #z=[estimated_location[2]],
+            #mode='markers+text',
+            #marker=dict(size=15, color='red', symbol='diamond'),
+            #text=['EST'],
+            #textposition="top center",
+            #name='Estimated Source'
+        #))
     
     # Plot actual source if provided
     if actual_source and len(actual_source) >= 3:
@@ -360,7 +367,7 @@ def create_3d_plot_with_shapes(sensors, estimated_location, shapes, closest_shap
 # Main application
 def main():
     # Title and description
-    st.title("Nevera - Advanced Vibration Source Locator")
+    st.title(" Nevera - Advanced Vibration Source Locator")
     
     st.markdown("""
     ## Welcome to Advanced Nevera!
@@ -542,7 +549,7 @@ def main():
                 st.metric("Error from True Source", f"{error:.2f}")
         
         # Create visualization
-        st.subheader("Visualization")
+        st.subheader( "Visualization")
         
         actual_source = [actual_x, actual_y, actual_z] if show_actual else None
         
